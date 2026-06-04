@@ -1,0 +1,22 @@
+{
+  "name": "김밥말기챌린지",
+  "short_name": "김밥챌린지",
+  "description": "김밥 재료를 모아 김밥을 완성하는 챌린지 게임",
+  "start_url": "/kimbap-game/",
+  "display": "standalone",
+  "background_color": "#fff8ed",
+  "theme_color": "#ff5c2b",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/seaweed.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/seaweed.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
