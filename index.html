@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>김밥 만들기</title>
+<!-- release: max hearts 10 / regen 15min / debug UI removed -->
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  background:linear-gradient(180deg,#fff8ed,#ffe9c4);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  display:flex;justify-content:center;color:#4a2f1f;
+}
+#app{width:100%;max-width:430px;height:100dvh;display:flex;flex-direction:column;position:relative;overflow:hidden;padding-bottom:env(safe-area-inset-bottom)}
+
+/* splash */
+#splash{
+  position:absolute;inset:0;z-index:100;background:linear-gradient(180deg,#fff8ed,#ffe0a0);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:20px;
+}
+#splash.hide{animation:fadeOut .28s ease forwards;pointer-events:none}
+@keyframes fadeOut{to{opacity:0}}
+.splash-emoji{font-size:62px;animation:bounce 1s infinite alternate}
+@keyframes bounce{from{transform:translateY(0)}to{transform:translateY(-8px)}}
+.splash-title{font-size:32px;font-weight:1000;letter-spacing:-1px;text-shadow:0 3px 0 rgba(255,200,100,.45)}
+.splash-sub{font-size:13px;color:#8c684d;font-weight:800;text-align:center}
+.guide-card{
+  width:min(360px,92vw);background:rgba(255,255,255,.9);border:2px solid rgba(168,112,54,.15);
+  border-radius:18px;padding:11px 12px;box-shadow:0 6px 18px rgba(88,55,20,.1);display:flex;flex-direction:column;gap:7px
+}
+.guide-title{font-size:13px;font-weight:1000}
+.guide-row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11px;color:#7c604e}
+.guide-row b{font-size:11px;color:#4a2f1f;white-space:nowrap}
+.guide-row span{text-align:right;font-weight:800}
+.guide-row.bad{background:#fff4e6;border-radius:12px;padding:6px 8px}
+.splash-hearts{display:flex;gap:7px;align-items:center;background:#fff;border-radius:999px;padding:8px 18px;box-shadow:0 4px 14px rgba(88,55,20,.12);margin-top:2px}
+#splashHearts,#heart-display{display:flex;gap:3px;align-items:center}
+.h-icon{font-size:20px;line-height:1}
+.h-icon.empty{filter:grayscale(1);opacity:.32}
+.splash-hearts small{font-size:11px;color:#a57d5d;font-weight:800}
+.no-heart-msg{font-size:12px;color:#dc2626;font-weight:800;text-align:center;min-height:15px}
+.splash-btn{
+  background:linear-gradient(180deg,#ff8a4b,#ff5c2b);color:#fff;border:none;padding:14px 48px;
+  border-radius:999px;font-size:17px;font-weight:1000;box-shadow:0 7px 0 #d9481f,0 14px 28px rgba(255,107,53,.3);cursor:pointer
+}
+.splash-btn:disabled{background:#ccc;box-shadow:0 4px 0 #aaa;cursor:not-allowed}
+/* header/timer */
+#header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px 4px;gap:8px}
+.stage-badge,#heart-display,.pause-btn{background:#fff;border-radius:999px;box-shadow:0 3px 10px rgba(88,55,20,.12)}
+.stage-badge{padding:7px 14px;font-size:13px;font-weight:1000;color:#5b3c28}
+#heart-display{padding:6px 10px}
+.pause-btn{border:none;padding:7px 12px;font-size:16px;cursor:pointer}
+#timer-section{padding:0 14px;display:flex;flex-direction:column;gap:3px}
+.timer-top{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:900;color:#a57d5d}
+.timer-top .t-sec{font-size:13px;font-weight:1000;color:#4a2f1f}
+.timer-wrap{height:10px;background:#ffe1b7;border-radius:999px;overflow:hidden}
+#timerBar{height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#69d88f,#25c26a);transition:width .05s linear,background .25s}
+#timer-section.wrong-hit .timer-wrap{animation:wrongBar .35s ease}
+#timer-section.wrong-hit #timerBar{background:linear-gradient(90deg,#ff4d4d,#ff1a1a)!important}
+@keyframes wrongBar{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}}
+
+/* recipe */
+#recipe-bar{margin:5px 14px 0;background:#fff;border-radius:16px;padding:10px 12px;box-shadow:0 4px 14px rgba(88,55,20,.1)}
+.recipe-top-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.recipe-kimbap-name{font-size:16px;font-weight:1000;color:#4a2f1f}
+.recipe-sub{font-size:12px;color:#a57d5d;font-weight:800}
+#recipe-icons{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.recipe-icon{width:50px;height:50px;border-radius:14px;background:#f7f1e9;border:2px solid #eee1d3;overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.recipe-icon img{width:96%;height:96%;object-fit:contain}
+.recipe-icon .ing-label{font-size:10px;font-weight:800;color:#b59883;text-align:center}
+.recipe-icon.got{border-color:#22c55e;background:#f0fdf4}
+.recipe-icon.got::after{content:"✓";position:absolute;bottom:2px;right:4px;font-size:12px;font-weight:1000;color:#16a34a;text-shadow:0 1px 0 #fff}
+
+/* stage */
+#stage{margin:5px 14px;position:relative;background:#fff7e8;border-radius:20px;box-shadow:0 8px 22px rgba(88,55,20,.12);overflow:hidden;height:clamp(320px,50dvh,520px);flex:0 0 auto}
+#stage.wrong-hit{animation:wrongShake .28s linear}
+#stage.danger-time{animation:stageUrgent .42s ease-in-out infinite alternate;box-shadow:0 0 0 3px rgba(255,77,77,.22),0 8px 24px rgba(255,77,77,.24)}
+@keyframes wrongShake{25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+@keyframes stageUrgent{from{transform:scale(1)}to{transform:scale(1.012)}}
+#timer-section.danger-time .timer-top .t-sec{color:#dc2626;animation:timerBlink .35s ease-in-out infinite alternate}
+@keyframes timerBlink{from{transform:scale(1)}to{transform:scale(1.12)}}
+#game{display:block;width:100%;height:100%;border-radius:20px;cursor:pointer}
+#resumeCountdown{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:20;background:rgba(50,30,18,.4);backdrop-filter:blur(2px);color:#fff;font-size:80px;font-weight:1000;text-shadow:0 5px 0 rgba(0,0,0,.25);border-radius:20px}
+#resumeCountdown.show{display:flex}
+
+/* overlays */
+.g-overlay{position:absolute;inset:0;z-index:10;display:none;flex-direction:column;align-items:center;justify-content:center;border-radius:20px}
+.g-overlay.show{display:flex}
+#rollOverlay,#completeOverlay{background:rgba(255,248,230,.96);padding:12px}
+.rolling-ui-img{width:min(96%,390px);max-height:92%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(83,45,18,.22));animation:uiPop .32s cubic-bezier(.2,1.3,.4,1) both}
+.complete-ui-img{width:min(96%,390px);max-height:56%;object-fit:contain;filter:drop-shadow(0 10px 18px rgba(83,45,18,.22));animation:uiPop .32s cubic-bezier(.2,1.3,.4,1) both}
+@keyframes uiPop{from{transform:scale(.86);opacity:0}to{transform:scale(1);opacity:1}}
+.result-rank-panel{background:#fff;border-radius:18px;padding:10px 12px;margin-top:8px;width:min(92%,330px);box-shadow:0 6px 16px rgba(88,55,20,.12)}
+.result-rank-title{font-size:13px;font-weight:1000;color:#4a2f1f;margin-bottom:6px}
+.result-rank-me{display:flex;justify-content:space-between;gap:8px;background:#fff6ea;border-radius:12px;padding:8px 10px;font-size:13px;font-weight:900;color:#5b3c28}
+.result-rank-list{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.rank-row{display:flex;justify-content:space-between;background:#fff6ea;border-radius:10px;padding:6px 9px;font-weight:900;font-size:12px}
+.complete-btns{display:flex;gap:10px;margin-top:8px}
+.btn-home,.btn-next,.main-btn,.secondary-btn{border:none;cursor:pointer;font-weight:1000}
+.btn-home{background:linear-gradient(180deg,#ff8a4b,#ff5c2b);color:#fff;padding:12px 20px;border-radius:16px;font-size:14px;box-shadow:0 5px 0 #d9481f}
+.btn-next{background:linear-gradient(180deg,#5ad87a,#27b84a);color:#fff;padding:12px 20px;border-radius:16px;font-size:14px;box-shadow:0 5px 0 #1a8a35}
+#pauseOverlay,#noHeartOverlay,#timeoutOverlay{background:rgba(41,24,15,.6);backdrop-filter:blur(4px)}
+.card{background:#fff;border-radius:22px;padding:22px;text-align:center;width:270px}
+.card h3{font-size:20px;margin-bottom:12px}
+.heart-timer-big{font-size:28px;font-weight:1000;color:#dc2626;margin:8px 0 16px}
+.heart-refill-info{font-size:13px;color:#7c604e;font-weight:800;margin:8px 0 16px}
+
+/* bottom */
+#msg{text-align:center;font-size:12px;font-weight:900;color:#4a2f1f;padding:2px 14px;min-height:18px}
+#collect-bar{margin:0 14px 4px;background:#fff;border-radius:16px;padding:6px 12px;box-shadow:0 4px 14px rgba(88,55,20,.1)}
+.collect-label{font-size:11px;font-weight:1000;color:#a57d5d;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+#collect-slots{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.collect-slot{width:38px;height:38px;border-radius:10px;background:#f7f1e9;border:2px dashed #e5d5c0;overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0}
+.collect-slot.filled{border:2px solid #ffd15b;background:#fff9e8}
+.collect-slot.filled img{width:90%;height:90%;object-fit:contain}
+.slot-empty{font-size:16px;color:#e5d5c0}
+.collect-slot.pop{animation:slotPop .3s ease}
+@keyframes slotPop{0%{transform:scale(.65)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+#bottom-area{padding:0 14px 10px;display:flex;flex-direction:column;gap:5px}
+#score-row{display:flex;justify-content:space-between;font-size:12px;color:#a57d5d;font-weight:800}
+#score-row b{color:#4a2f1f;font-size:14px}
+#controls{display:flex;gap:8px}
+.main-btn{flex:1;border-radius:16px;padding:11px;background:linear-gradient(180deg,#ff8a4b,#ff5c2b);color:#fff;font-size:14px;box-shadow:0 5px 0 #d9481f}
+.secondary-btn{border-radius:16px;padding:11px 14px;background:linear-gradient(180deg,#fff,#fff0db);color:#5b3c28;box-shadow:0 5px 0 #ead1b2}
+
+/* ranking modal */
+.modal{position:fixed;inset:0;background:rgba(41,24,15,.45);display:none;align-items:center;justify-content:center;padding:24px;z-index:50}
+.modal.show{display:flex}
+.modal .card{width:100%;max-width:320px;background:#fff;border-radius:24px;padding:20px;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.2)}
+.rank-list{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+
+@media (max-height:760px){
+  .splash-emoji{font-size:50px}.splash-title{font-size:28px}.guide-card{gap:4px;padding:9px 10px}.guide-row{font-size:10px}
+  .recipe-icon{width:42px;height:42px}#stage{height:clamp(285px,47dvh,430px)}#score-row{display:none}
+}
+@media (max-height:680px){
+  .guide-card{display:none}#collect-bar{display:none}#stage{height:clamp(260px,52dvh,370px)}.recipe-icon{width:38px;height:38px}
+}
+
+/* ── 화면 잘림/하단 버튼 위치 수정 ── */
+#completeOverlay{
+  justify-content:flex-start !important;
+  padding:10px 12px 14px !important;
+  overflow-y:auto !important;
+  -webkit-overflow-scrolling:touch;
+}
+.complete-ui-img{
+  width:min(82%,320px) !important;
+  max-height:34% !important;
+  margin-top:4px !important;
+}
+.result-rank-panel{
+  margin-top:6px !important;
+  padding:9px 10px !important;
+  width:min(94%,330px) !important;
+  flex-shrink:0;
+}
+.complete-btns{
+  margin-top:8px !important;
+  margin-bottom:4px !important;
+  flex-shrink:0;
+}
+.complete-btns .btn-home,
+.complete-btns .btn-next{
+  padding:10px 16px !important;
+  font-size:13px !important;
+}
+
+/* ── 상단 랭킹 버튼 소형화 ── */
+#header{
+  padding:7px 12px 3px !important;
+}
+.header-mini-rank{
+  border:0;
+  background:#fff;
+  border-radius:999px;
+  padding:6px 9px;
+  font-size:12px;
+  font-weight:1000;
+  color:#5b3c28;
+  box-shadow:0 3px 10px rgba(88,55,20,.12);
+  cursor:pointer;
+}
+#heart-display{padding:5px 8px !important}
+.stage-badge{padding:6px 12px !important}
+
+/* ── 모아야 할 재료/모은 재료 영역 확대 ── */
+#recipe-bar{
+  padding:12px 13px !important;
+  margin-top:5px !important;
+}
+.recipe-top-row{
+  margin-bottom:9px !important;
+}
+.recipe-kimbap-name{
+  font-size:17px !important;
+}
+.recipe-sub{
+  font-size:12px !important;
+}
+#recipe-icons{
+  gap:8px !important;
+}
+.recipe-icon{
+  width:56px !important;
+  height:56px !important;
+  border-radius:15px !important;
+  border-width:3px !important;
+}
+.recipe-icon img{
+  width:98% !important;
+  height:98% !important;
+}
+.recipe-icon.got{
+  background:#ecfdf3 !important;
+  border-color:#16a34a !important;
+  opacity:.72;
+}
+.recipe-icon.got::after{
+  content:"✓";
+  position:absolute;
+  right:2px;
+  bottom:2px;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:#16a34a;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:12px !important;
+  border:2px solid #fff;
+}
+
+/* 모은 재료 영역을 더 눈에 띄게 */
+#collect-bar{
+  padding:9px 12px !important;
+  margin-top:2px !important;
+  margin-bottom:5px !important;
+  border:2px solid rgba(255,193,7,.32);
+}
+.collect-label{
+  font-size:12px !important;
+  margin-bottom:7px !important;
+}
+#collect-slots{
+  gap:7px !important;
+}
+.collect-slot{
+  width:48px !important;
+  height:48px !important;
+  border-radius:14px !important;
+}
+.collect-slot.filled{
+  border:3px solid #ffc107 !important;
+  background:#fff7d6 !important;
+  box-shadow:0 4px 10px rgba(255,193,7,.18);
+}
+.collect-slot.filled img{
+  width:94% !important;
+  height:94% !important;
+}
+
+/* 하단 시작/랭킹 버튼 제거 후 공간 정리 */
+#bottom-area{
+  padding:0 14px max(8px, env(safe-area-inset-bottom)) !important;
+}
+#controls{
+  display:none !important;
+}
+#score-row{
+  padding:0 2px;
+}
+
+/* 게임판 높이 재조정: 재료 영역 커진 만큼 과도하게 밀리지 않게 */
+#stage{
+  height:clamp(255px,39dvh,430px) !important;
+  margin-top:5px !important;
+  margin-bottom:5px !important;
+}
+
+/* 일시정지 안에 재시작 버튼 배치 */
+#pauseOverlay .card{
+  width:270px !important;
+}
+#pauseOverlay .pause-restart-btn{
+  width:100%;
+  margin-bottom:10px;
+}
+
+/* 모바일 낮은 화면 대응 */
+@media (max-height:760px){
+  .recipe-icon{width:48px !important;height:48px !important}
+  .collect-slot{width:42px !important;height:42px !important}
+  #stage{height:clamp(230px,36dvh,360px) !important}
+  .complete-ui-img{max-height:28% !important;width:min(72%,280px) !important}
+  .result-rank-panel{font-size:12px}
+}
+@media (max-height:680px){
+  #collect-bar{display:block !important}
+  .collect-slot{width:36px !important;height:36px !important}
+  .recipe-icon{width:42px !important;height:42px !important}
+  #stage{height:clamp(200px,33dvh,310px) !important}
+  .complete-ui-img{display:none !important}
+}
+
+
+/* ── 완료 화면/결과 팝업 수정 ── */
+#completeOverlay{
+  justify-content:center !important;
+  overflow:hidden !important;
+  padding:12px !important;
+}
+.complete-ui-img{
+  width:min(96%,390px) !important;
+  max-height:76% !important;
+  margin-top:0 !important;
+}
+.complete-btns{
+  margin-top:10px !important;
+}
+.result-final-card{
+  max-width:340px !important;
+}
+.result-final-sub{
+  color:#7c604e;
+  font-size:13px;
+  font-weight:800;
+  margin:4px 0 10px;
+}
+.result-rank-panel{
+  background:#fff;
+  border-radius:18px;
+  padding:10px 12px;
+  margin:10px auto 12px;
+  width:100%;
+  box-shadow:0 6px 16px rgba(88,55,20,.12);
+}
+.result-rank-title{
+  font-size:13px;
+  font-weight:1000;
+  color:#4a2f1f;
+  margin-bottom:6px;
+  text-align:left;
+}
+.result-rank-me{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  background:#fff6ea;
+  border-radius:12px;
+  padding:8px 10px;
+  font-size:13px;
+  font-weight:900;
+  color:#5b3c28;
+}
+.result-rank-list{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  margin-top:6px;
+}
+.result-rank-list .rank-row{
+  padding:6px 9px;
+  font-size:12px;
+}
+@media (max-height:700px){
+  .complete-ui-img{
+    width:min(90%,350px) !important;
+    max-height:70% !important;
+    display:block !important;
+  }
+}
+
+
+/* 하트 없음 팝업 버튼 */
+.no-heart-card{width:290px !important}
+.no-heart-actions{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  width:100%;
+  margin-top:8px;
+}
+.no-heart-actions .main-btn,
+.no-heart-actions .secondary-btn{
+  width:100%;
+  flex:none;
+  padding:11px 12px;
+}
+
+
+/* 완료/결과/랭킹 버튼 개선 */
+.btn-rank{
+  background:linear-gradient(180deg,#fff,#fff0db);
+  color:#5b3c28;
+  border:none;
+  padding:12px 20px;
+  border-radius:16px;
+  font-size:14px;
+  font-weight:1000;
+  box-shadow:0 5px 0 #ead1b2;
+  cursor:pointer;
+}
+.complete-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1fr;
+  gap:8px !important;
+  width:min(92%,330px);
+}
+.complete-actions button{
+  width:100%;
+  padding:11px 12px !important;
+  font-size:13px !important;
+}
+.complete-actions #nextBtn{
+  grid-column:1 / -1;
+}
+.result-actions{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  margin-top:10px;
+}
+.result-actions .main-btn,
+.result-actions .secondary-btn{
+  width:100%;
+  flex:none;
+  padding:13px 14px !important;
+  font-size:15px !important;
+}
+#rankModal .main-btn{
+  width:100%;
+  padding:15px 16px !important;
+  font-size:16px !important;
+  border-radius:18px !important;
+}
+#rankModal .card{
+  padding:22px !important;
+}
+
+
+/* 스테이지 완료 자동 이동 UI */
+#completeOverlay{
+  justify-content:center !important;
+  overflow:hidden !important;
+  padding:12px !important;
+}
+.complete-ui-img{
+  width:min(96%,390px) !important;
+  max-height:86% !important;
+  object-fit:contain !important;
+}
+.stage-countdown{
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(43,27,18,.46);
+  color:#fff;
+  font-size:86px;
+  font-weight:1000;
+  text-shadow:0 6px 0 rgba(0,0,0,.22);
+  border-radius:20px;
+  z-index:3;
+}
+.stage-countdown.show{
+  display:flex;
+}
+
+/* 완료 화면에는 버튼/랭킹 패널이 나오지 않도록 강제 */
+#completeOverlay .complete-btns,
+#completeOverlay .result-rank-panel{
+  display:none !important;
+}
+
+/* 시간초과 팝업 버튼 */
+.timeout-actions{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  width:100%;
+  margin-top:4px;
+}
+.timeout-actions .main-btn,
+.timeout-actions .secondary-btn{
+  width:100%;
+  flex:none;
+  padding:12px 14px !important;
+  font-size:14px !important;
+}
+
+/* 랭킹 모달은 어떤 팝업 위에서도 보이게 */
+#rankModal{
+  z-index:200 !important;
+}
+#rankModal .main-btn{
+  width:100%;
+  padding:15px 16px !important;
+  font-size:16px !important;
+  border-radius:18px !important;
+}
+
+
+.result-rank-me{
+ border:3px solid #ffb347 !important;
+ background:linear-gradient(180deg,#fff8e8,#ffe9c7) !important;
+ box-shadow:0 0 0 4px rgba(255,179,71,.18);
+}
+
+
+/* 출시용 하트 10개 표시 */
+#heart-display{
+  gap:2px !important;
+  padding:5px 8px !important;
+}
+#splashHearts{
+  gap:2px !important;
+}
+.h-icon{
+  font-size:16px !important;
+}
+.splash-hearts .h-icon{
+  font-size:18px !important;
+}
+.splash-hearts{
+  padding:8px 14px !important;
+}
+
+
+/* ── 요청 반영 패치 ── */
+/* 홈 화면 가독성 강화 */
+.splash-emoji{font-size:76px !important}
+.splash-title{font-size:42px !important;line-height:1.08;text-align:center}
+.splash-sub{font-size:17px !important;line-height:1.35;color:#6f4d35 !important}
+.guide-card{padding:15px 16px !important;gap:10px !important;border-radius:22px !important}
+.guide-title{font-size:18px !important}
+.guide-row{font-size:14px !important;line-height:1.35}
+.guide-row b{font-size:14px !important}
+.guide-row span{font-size:13px !important}
+.splash-btn{font-size:19px !important;padding:16px 56px !important}
+.splash-hearts{padding:9px 18px !important;gap:8px !important}
+.heart-count-badge{font-size:18px;font-weight:1000;color:#4a2f1f;letter-spacing:-.2px}
+.heart-timer-text{font-size:12px;color:#a57d5d;font-weight:900}
+
+/* 인게임 하트도 xN 형태 */
+#heart-display{font-size:15px;font-weight:1000;color:#4a2f1f;min-width:58px;justify-content:center}
+
+/* 완료 즉시 FINISH + 콘페티 */
+.finish-burst{
+  position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:4;
+  font-size:64px;font-weight:1000;color:#fff;text-shadow:0 6px 0 rgba(0,0,0,.22),0 0 22px rgba(255,92,43,.8);
+  background:rgba(43,27,18,.18);border-radius:20px;
+}
+.finish-burst.show{display:flex;animation:finishPop .9s cubic-bezier(.2,1.4,.35,1) both}
+@keyframes finishPop{
+  0%{transform:scale(.55) rotate(-8deg);opacity:0}
+  18%{transform:scale(1.18) rotate(3deg);opacity:1}
+  100%{transform:scale(1) rotate(0);opacity:0}
+}
+.finish-confetti{
+  position:absolute;inset:0;display:none;pointer-events:none;overflow:hidden;border-radius:20px;z-index:5;
+}
+.finish-confetti.show{display:block}
+.finish-confetti .cf{
+  position:absolute;width:9px;height:14px;border-radius:3px;
+  animation:confettiFall 1.15s linear forwards;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(390px) rotate(760deg);opacity:0}
+}
+
+/* 랭킹 팝업 내 점수/위치 */
+.rank-me-panel{
+  display:none;background:#fff6ea;border-radius:14px;padding:10px 12px;margin:10px 0 8px;
+  box-shadow:inset 0 0 0 1px rgba(255,138,75,.14);
+}
+.rank-me-panel.show{display:block}
+.rank-me-title{font-size:12px;font-weight:1000;color:#a57d5d;margin-bottom:6px;text-align:left}
+.rank-me-row{display:flex;justify-content:space-between;gap:8px;font-size:15px;font-weight:1000;color:#4a2f1f}
+.rank-me-rank{color:#ff5c2b}
+
+@media (max-height:760px){
+  .splash-title{font-size:34px !important}
+  .splash-sub{font-size:14px !important}
+  .guide-title{font-size:15px !important}
+  .guide-row,.guide-row b{font-size:12px !important}
+  .guide-row span{font-size:11px !important}
+}
+
+
+/* 하트 빈 영역/가독성 보정 */
+.splash-hearts{
+  min-width:118px;
+  justify-content:center;
+  background:rgba(255,255,255,.78) !important;
+}
+#splashHearts:empty::before{
+  content:"❤️ x10";
+  font-size:18px;
+  font-weight:1000;
+  color:#4a2f1f;
+}
+#splashHeartTimer:empty::before{
+  content:"하트 가득!";
+  font-size:12px;
+  color:#a57d5d;
+  font-weight:900;
+}
+
+
+/* 앱인토스 제출용 문구/랭킹 패치 */
+.splash-title{font-size:42px !important;line-height:1.08;text-align:center}
+.splash-sub{font-size:17px !important;line-height:1.35;color:#6f4d35 !important;font-weight:900 !important}
+.guide-title{font-size:17px !important}
+.guide-row{font-size:13px !important;line-height:1.35}
+.guide-row b{font-size:13px !important}
+.guide-row span{font-size:12px !important}
+.rank-me-panel{
+  display:none;
+  background:#fff6ea;
+  border-radius:14px;
+  padding:10px 12px;
+  margin:10px 0 8px;
+  box-shadow:inset 0 0 0 1px rgba(255,138,75,.14);
+}
+.rank-me-panel.show{display:block}
+.rank-me-title{
+  font-size:12px;
+  font-weight:1000;
+  color:#a57d5d;
+  margin-bottom:6px;
+  text-align:left;
+}
+.rank-me-row{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  font-size:15px;
+  font-weight:1000;
+  color:#4a2f1f;
+}
+.rank-me-rank{color:#ff5c2b}
+.result-rank-title::after{
+  content:"";
+}
+@media (max-height:760px){
+  .splash-title{font-size:34px !important}
+  .splash-sub{font-size:14px !important}
+  .guide-title{font-size:15px !important}
+  .guide-row,.guide-row b{font-size:12px !important}
+  .guide-row span{font-size:11px !important}
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="splash">
+    <div class="splash-emoji">🍙</div>
+    <div class="splash-title">김밥 말기 챌린지</div>
+    <div class="splash-sub">30초 안에 레시피를 완성해보세요!</div>
+    <div class="guide-card">
+      <div class="guide-title">게임 안내</div>
+      <div class="guide-row"><b>✅ 필요한 재료</b><span>레시피에 표시된 재료만 선택하세요</span></div>
+      <div class="guide-row bad"><b>⚠️ 오답</b><span>틀린 재료를 누르면 시간 -1초</span></div>
+      <div class="guide-row bad"><b>🌶️ 🟢 💣 방해 재료</b><span>누르면 시간 -2초</span></div>
+      <div class="guide-row"><b>⏰ 마지막 5초</b><span>재료가 더 빨라집니다</span></div>
+      <div class="guide-row"><b>❤️ 플레이 기준</b><span>1회 플레이 시 하트 1개 사용</span></div>
+    </div>
+    <div class="splash-hearts"><div id="splashHearts"></div><small id="splashHeartTimer"></small></div>
+    <div class="no-heart-msg" id="noHeartSplashMsg"></div>
+    <button class="splash-btn" id="splashBtn" onclick="startGame()">▶ 시작하기</button>
+  </div>
+
+  <div id="header">
+    <div class="stage-badge">STAGE <span id="stageNum">1</span></div>
+    <div id="heart-display"></div>
+    <button class="header-mini-rank" onclick="openRanking()">🏆</button><button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸</button>
+  </div>
+
+  <div id="timer-section">
+    <div class="timer-top"><span>남은 시간</span><span class="t-sec"><span id="timerNum">18</span>초</span></div>
+    <div class="timer-wrap"><div id="timerBar"></div></div>
+  </div>
+
+  <div id="recipe-bar">
+    <div class="recipe-top-row"><div class="recipe-kimbap-name" id="kimbapName">기본 김밥</div><div class="recipe-sub">레시피</div></div>
+    <div id="recipe-icons"></div>
+  </div>
+
+  <div id="stage">
+    <canvas id="game"></canvas>
+    <div id="resumeCountdown"></div>
+    <div class="g-overlay" id="rollOverlay">
+      <img class='rolling-ui-img' src='assets/rolling_ui.png' alt='김밥 마는 중'>
+    </div>
+    <div class="g-overlay" id="completeOverlay">
+      <img class="complete-ui-img" src="assets/complete_ui.png" alt="김밥 완성">
+      <div class="stage-countdown" id="stageCountdown"></div>
+      <div class="finish-burst" id="finishBurst">FINISH!</div>
+      <div class="finish-confetti" id="finishConfetti"></div>
+    </div>
+    <div class="g-overlay" id="pauseOverlay">
+      <div class="card">
+        <h3>⏸ 일시정지</h3>
+        <button class="main-btn" style="width:100%;margin-bottom:10px" onclick="startResumeCountdown()">▶ 계속하기</button>
+        <button class="main-btn pause-restart-btn" onclick="document.getElementById('pauseOverlay').classList.remove('show'); startGame()">🔄 시작 / 재시작</button>
+        <button class="secondary-btn" style="width:100%" onclick="goHome()">🏠 홈으로</button>
+      </div>
+    </div>
+    <div class="g-overlay" id="timeoutOverlay">
+      <div class="card">
+        <h3>⏰ 시간 종료!</h3>
+        <p style="font-size:13px;color:#7c604e;font-weight:800;margin-bottom:10px">내일 다시 도전하고 더 높은 순위에 도전해보세요.</p>
+        <div style="background:#fff6ea;border-radius:14px;padding:10px;margin-bottom:12px;font-weight:900">최종 점수 <span id="timeoutScore" style="font-size:20px;color:#ff5c2b">0</span>점</div>
+        <div class="timeout-actions">
+          <button class="main-btn" onclick="retryGame()">🔄 재도전</button>
+          <button class="secondary-btn" onclick="openRanking()">🏆 랭킹</button>
+          <button class="secondary-btn" onclick="goHome()">🏠 홈으로</button>
+        </div>
+      </div>
+    </div>
+    <div class="g-overlay" id="noHeartOverlay">
+      <div class="card no-heart-card">
+        <h3>💔 하트가 없어요!</h3>
+        <div class="heart-refill-info">다음 하트까지</div>
+        <div class="heart-timer-big" id="heartTimerBig">--:--</div>
+        <div class="heart-refill-info">플레이 1회당 하트 1개 사용<br>15분마다 1개 충전 · 최대 10개</div>
+        <div class="no-heart-actions">
+          <button class="main-btn" onclick="tryNoHeartRetry()">🔄 재도전</button>
+          <button class="secondary-btn" onclick="openRankingFromNoHeart()">🏆 랭킹</button>
+          <button class="secondary-btn" onclick="goHome()">🏠 홈으로</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="msg">시작 버튼을 눌러보세요!</div>
+  <div id="collect-bar">
+    <div class="collect-label"><span>모은 재료</span><span id="progressText">0 / 5</span></div>
+    <div id="collect-slots"></div>
+  </div>
+  <div id="bottom-area">
+    <div id="score-row"><span>점수 <b id="score">0</b></span><span>완성 <b id="made">0</b>개</span></div>
+    <div id="controls"><button class="main-btn" onclick="startGame()">시작 / 재시작</button><button class="secondary-btn" onclick="openRanking()">🏆 랭킹</button></div>
+  </div>
+</div>
+
+
+<div class="modal" id="resultModal">
+  <div class="card result-final-card">
+    <h2>🎉 오늘의 결과</h2>
+    <p class="result-final-sub">오늘의 김밥 만들기 완료!</p>
+    <div class="result-rank-panel" id="resultRankPanel"></div>
+    <div class="result-actions">
+      <button class="main-btn" onclick="retryFromResult()">🔄 재도전</button>
+      <button class="secondary-btn" onclick="openRanking()">🏆 랭킹</button>
+      <button class="secondary-btn" onclick="closeResultModal()">🏠 홈으로</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="rankModal">
+  <div class="card">
+    <h2>🏆 오늘의 랭킹</h2>
+    <p style="color:#7c604e;font-weight:800;font-size:13px;margin-bottom:2px">오늘의 랭킹</p>
+    <div class="rank-me-panel" id="rankMePanel"></div>
+    <div class="rank-list" id="rankList"></div>
+    <button class="main-btn" onclick="closeRanking()">닫기</button>
+  </div>
+</div>
+
+<script>
+const imageMap = {
+  "밥":"assets/rice.png",
+  "계란":"assets/egg.png",
+  "단무지":"assets/radish.png",
+  "시금치":"assets/spinach.png",
+  "불고기":"assets/bulgogi.png",
+  "김":"assets/seaweed.png",
+  "맛살":"assets/crab_stick.png",
+  "참치":"assets/tuna.png",
+  "햄":"assets/ham.png",
+  "치즈":"assets/cheese.png",
+  "당근":"assets/carrot.png"
+};
+const layerColors = {
+  "밥":"#fff8ed","계란":"#ffd642","단무지":"#ffc200","시금치":"#23a455",
+  "불고기":"#a0522d","김":"#1a2e1a","맛살":"#ff6b6b","당근":"#ff7a18",
+  "참치":"#f0b18b","햄":"#ffb6c1","치즈":"#ffe680"
+};
+const stages = [
+  {title:"기본 김밥",time:18,recipe:["김","밥","단무지","계란","시금치"],bonus:300},
+  {title:"치즈 김밥",time:17,recipe:["김","밥","단무지","계란","치즈","당근"],bonus:400},
+  {title:"참치 김밥",time:16,recipe:["김","밥","단무지","참치","맛살","당근"],bonus:500},
+  {title:"불고기 김밥",time:15,recipe:["김","밥","불고기","당근","시금치"],bonus:650},
+  {title:"스페셜 김밥",time:14,recipe:["김","밥","불고기","참치","햄","치즈","당근"],bonus:900}
+];
+const ALL_INGREDIENTS=["김","밥","단무지","계란","시금치","불고기","맛살","참치","햄","치즈","당근"];
+const badItems=["고추","와사비","탄김"];
+const badEmoji={"고추":"🌶️","와사비":"🟢","탄김":"💣"};
+
+const MAX_HEARTS=10;
+const HEART_REGEN_MS=15*60*1000;
+const HEART_STORAGE_KEY="kimbap_hearts_release_v2";
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+const IMGS={};
+let score=0,round=1,made=0,names=[],got={},items=[],running=false,paused=false,time=18,roundTime=18,last=0,raf=null,resumeCounting=false;
+
+function loadImages(){
+  Object.entries(imageMap).forEach(([k,path])=>{
+    const img=new Image();
+    img.onload=()=>{ IMGS[k]=img; try{renderRecipeBar();renderCollectSlots();draw();}catch(e){} };
+    img.onerror=()=>console.warn("missing",k,path);
+    img.src=path;
+    IMGS[k]=img;
+  });
+}
+function getStage(){return stages[Math.min(round-1,stages.length-1)]}
+
+function getHearts(){
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem(HEART_STORAGE_KEY)||"null")}catch(e){localStorage.removeItem(HEART_STORAGE_KEY)}
+  if(!saved||typeof saved.count!=="number"||typeof saved.lastRegen!=="number") return {count:MAX_HEARTS,lastRegen:Date.now()};
+  let count=Math.max(0,Math.min(MAX_HEARTS,saved.count));
+  let lastRegen=saved.lastRegen;
+  const now=Date.now();
+  if(count<MAX_HEARTS){
+    const regen=Math.floor((now-lastRegen)/HEART_REGEN_MS);
+    if(regen>0){
+      count=Math.min(MAX_HEARTS,count+regen);
+      lastRegen=count>=MAX_HEARTS?now:lastRegen+regen*HEART_REGEN_MS;
+      saveHearts(count,lastRegen);
+    }
+  }
+  return {count,lastRegen};
+}
+function saveHearts(count,lastRegen){localStorage.setItem(HEART_STORAGE_KEY,JSON.stringify({count,lastRegen}))}
+function useHeart(){
+  const h=getHearts();
+  if(h.count<=0)return false;
+  saveHearts(h.count-1,h.count>=MAX_HEARTS?Date.now():h.lastRegen);
+  renderHearts();
+  return true;
+}
+function getNextHeartMs(){
+  const h=getHearts();
+  if(h.count>=MAX_HEARTS)return 0;
+  return Math.max(0,HEART_REGEN_MS-(Date.now()-h.lastRegen));
+}
+function fmtMs(ms){const m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000);return String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
+function heartHtml(count){return `<span class="heart-count-badge">❤️ x${count}</span>`}
+
+function renderHearts(){
+  const h=getHearts();
+  const heartMarkup=heartHtml(h.count);
+  const inGame=document.getElementById("heart-display");
+  const splash=document.getElementById("splashHearts");
+  const timer=document.getElementById("splashHeartTimer");
+  const btn=document.getElementById("splashBtn");
+  const msg=document.getElementById("noHeartSplashMsg");
+  if(inGame) inGame.innerHTML=heartMarkup;
+  if(splash) splash.innerHTML=heartMarkup;
+  if(timer) timer.innerHTML=h.count>=MAX_HEARTS
+    ? '<span class="heart-timer-text">하트 가득!</span>'
+    : `<span class="heart-timer-text">다음 하트 ${fmtMs(getNextHeartMs())}</span>`;
+  if(btn) btn.disabled=h.count<=0;
+  if(msg) msg.textContent=h.count<=0 ? "하트가 충전될 때까지 기다려주세요." : "";
+}
+
+
+
+setInterval(()=>{renderHearts();const big=document.getElementById("heartTimerBig");if(big)big.textContent=fmtMs(getNextHeartMs())},1000);
+
+function resizeCanvas(){
+  const rect=document.getElementById("stage").getBoundingClientRect();
+  const ratio=window.devicePixelRatio||1;
+  canvas.width=Math.floor(rect.width*ratio);
+  canvas.height=Math.floor(rect.height*ratio);
+  canvas.style.width=rect.width+"px";canvas.style.height=rect.height+"px";
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+}
+window.addEventListener("resize",()=>{resizeCanvas();draw();});
+
+function startGame(){
+  try{renderHearts();}catch(e){}
+  if(!useHeart()){document.getElementById("heartTimerBig").textContent=fmtMs(getNextHeartMs());document.getElementById("noHeartOverlay").classList.add("show");return;}
+  document.getElementById("splash").classList.add("hide");
+  ["completeOverlay","rollOverlay","pauseOverlay","timeoutOverlay","noHeartOverlay"].forEach(id=>document.getElementById(id).classList.remove("show"));
+  score=0;round=1;made=0;startRound();
+}
+function startRound(){
+  const st=getStage();
+  names=[...st.recipe];got={};items=[];roundTime=st.time;time=roundTime;
+  running=true;paused=false;resumeCounting=false;
+  document.getElementById("pauseBtn").textContent="⏸";
+  resizeCanvas();spawnItems();renderAll();last=performance.now();
+  setMsg(round>=2?"방해 재료는 피하고, 필요한 재료만 탭하세요!":"레시피 재료만 빠르게 모으세요!");
+  if(raf)cancelAnimationFrame(raf);
+  raf=requestAnimationFrame(loop);
+}
+function retryGame(){document.getElementById("timeoutOverlay").classList.remove("show");startGame();}
+
+function retryCurrentStage(){
+  document.getElementById("completeOverlay").classList.remove("show");
+  // 현재 스테이지를 다시 시작합니다. 테스트/프로토타입에서는 하트 추가 차감 없이 재도전합니다.
+  startRound();
+}
+function retryFromResult(){
+  document.getElementById("resultModal").classList.remove("show");
+  round=1;
+  score=0;
+  made=0;
+  startRound();
+}
+
+function nextStage(){
+  document.getElementById("completeOverlay").classList.remove("show");
+  if(round>=stages.length){
+    running=false;
+    renderResultRanking();
+    document.getElementById("resultModal").classList.add("show");
+    return;
+  }
+  round++;
+  startRound();
+}
+function goHome(){
+  running=false;paused=false;if(raf)cancelAnimationFrame(raf);
+  ["completeOverlay","rollOverlay","pauseOverlay","timeoutOverlay","noHeartOverlay"].forEach(id=>document.getElementById(id).classList.remove("show"));
+  document.getElementById("splash").classList.remove("hide");
+  renderHearts();setMsg("시작 버튼을 눌러보세요!");
+}
+function setMsg(t){document.getElementById("msg").textContent=t}
+
+function spawnItems(){
+  items=[];
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+
+  // 현재 레시피 재료를 모두 먼저 깔아서 "필요 재료가 안 나오는" 상황 방지
+  names.forEach(n=>items.push(mkItem(n,w,h)));
+
+  // 여유 슬롯에는 전체 재료 풀에서 오답/다른 재료를 섞음
+  while(items.length<Math.max(9,names.length+3))spawnOne(true);
+}
+function mkItem(n,w,h,bad=false){
+  return {name:n,bad,x:44+Math.random()*(w-88),y:44+Math.random()*(h-88),r:bad?24+Math.random()*5:27+Math.random()*7,vx:(Math.random()-.5)*(bad?1.0:.75),vy:(Math.random()-.5)*(bad?1.0:.75)}
+}
+function spawnOne(allowAny=true){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  const missing=names.filter(n=>!got[n]);
+  let n,bad=false;
+
+  // 진행 막힘 방지: 화면에 없는 미수집 레시피 재료가 있으면 최우선 보충
+  const missingNotOnBoard=missing.filter(n=>!items.some(it=>it.name===n && !it.bad));
+  if(missingNotOnBoard.length){
+    n=missingNotOnBoard[Math.floor(Math.random()*missingNotOnBoard.length)];
+    items.push(mkItem(n,w,h,false));
+    return;
+  }
+
+  const r=Math.random();
+  const badChance=round>=2?(time<6?.22:.10):0;
+
+  if(r<badChance){
+    n=badItems[Math.floor(Math.random()*badItems.length)];
+    bad=true;
+  }else if(missing.length && r<0.42){
+    // 레시피 재료가 계속 보이도록 일부는 미수집 재료 복제
+    n=missing[Math.floor(Math.random()*missing.length)];
+  }else if(allowAny){
+    // 오답 재료는 전체 풀에서 나오되, 화면 절반 이상을 차지하지 않게 제한
+    const wrongCount=items.filter(it=>!it.bad && !names.includes(it.name)).length;
+    if(wrongCount>=3 && missing.length){
+      n=missing[Math.floor(Math.random()*missing.length)];
+    }else{
+      n=ALL_INGREDIENTS[Math.floor(Math.random()*ALL_INGREDIENTS.length)];
+    }
+  }else if(missing.length){
+    n=missing[Math.floor(Math.random()*missing.length)];
+  }else{
+    n=names[Math.floor(Math.random()*names.length)];
+  }
+
+  items.push(mkItem(n,w,h,bad));
+}
+function ensureMissing(){
+  const missing=names.filter(n=>!got[n]);
+  if(!missing.length)return;
+
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  const missingNotOnBoard=missing.filter(n=>!items.some(it=>it.name===n && !it.bad));
+  missingNotOnBoard.forEach(n=>items.push(mkItem(n,w,h,false)));
+
+  // 너무 많은 오답만 남지 않도록 화면 개수 유지
+  while(items.length<Math.max(8,names.length+2))spawnOne(true);
+}
+
+function loop(t){
+  if(!running){raf=null;return;}
+  raf=requestAnimationFrame(loop);
+  if(paused){draw();return;}
+  const dt=(t-last)/1000;last=t;time-=dt;
+  if(time<=0){endGame();return;}
+  update(dt);draw();renderTimer();
+}
+function update(dt){
+  const w=canvas.clientWidth,h=canvas.clientHeight,boost=time<6?1.45:1;
+  items.forEach(it=>{
+    it.x+=it.vx*60*dt*boost*(it.bad?1.18:1);it.y+=it.vy*60*dt*boost*(it.bad?1.18:1);
+    if(it.x<it.r||it.x>w-it.r)it.vx*=-1;
+    if(it.y<it.r||it.y>h-it.r)it.vy*=-1;
+  });
+}
+function draw(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
+  const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,"#fffaf1");g.addColorStop(1,"#fff3dd");
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  items.forEach(drawIng);
+  if(paused){ctx.fillStyle="rgba(60,35,20,.45)";ctx.fillRect(0,0,w,h);ctx.fillStyle="#fff";ctx.font="900 28px sans-serif";ctx.textAlign="center";ctx.fillText("일시정지",w/2,h/2);}
+}
+function drawIng(it){
+  ctx.save();
+  ctx.shadowColor="rgba(0,0,0,.14)";ctx.shadowBlur=12;ctx.shadowOffsetY=4;
+  if(it.bad){
+    ctx.fillStyle=it.name==="고추"?"#ef4444":it.name==="와사비"?"#8fd14f":"#202020";
+    ctx.beginPath();ctx.arc(it.x,it.y,it.r+7,0,Math.PI*2);ctx.fill();
+    ctx.shadowColor="transparent";ctx.fillStyle="#fff";ctx.font="900 22px sans-serif";ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(badEmoji[it.name],it.x,it.y+1);ctx.restore();return;
+  }
+  const img=IMGS[it.name];
+  if(img&&img.complete&&img.naturalWidth>0){const s=it.r*2.75;ctx.drawImage(img,it.x-s/2,it.y-s/2,s,s);}
+  else{ctx.fillStyle=layerColors[it.name]||"#fde68a";ctx.beginPath();ctx.arc(it.x,it.y,it.r,0,Math.PI*2);ctx.fill();ctx.shadowColor="transparent";ctx.fillStyle="#4a2f1f";ctx.font="bold 11px sans-serif";ctx.textAlign="center";ctx.fillText(it.name,it.x,it.y+4);}
+  ctx.restore();
+}
+
+canvas.addEventListener("click",e=>{
+  const r=canvas.getBoundingClientRect();
+  handleTap(e.clientX-r.left,e.clientY-r.top);
+});
+canvas.addEventListener("touchstart",e=>{
+  e.preventDefault();
+  const t=e.touches[0],r=canvas.getBoundingClientRect();
+  handleTap(t.clientX-r.left,t.clientY-r.top);
+},{passive:false});
+
+function handleTap(cx,cy){
+  if(!running||resumeCounting)return;
+  if(paused){startResumeCountdown();return;}
+  for(let i=items.length-1;i>=0;i--){
+    const it=items[i];
+    if(Math.hypot(cx-it.x,cy-it.y)<it.r+14){
+      if(it.bad){time=Math.max(0,time-2);items.splice(i,1);wrongVisual("앗! 방해 재료예요. 시간 -2초!");if(items.length<6)spawnOne();renderTimer();return;}
+      if(!names.includes(it.name)){time=Math.max(0,time-1);wrongVisual(it.name+"은 이번 레시피가 아니에요! 시간 -1초");ensureMissing();return;}
+      if(got[it.name]){time=Math.max(0,time-1);wrongVisual(it.name+"은 이미 모았어요! 시간 -1초");ensureMissing();return;}
+      got[it.name]=true;score+=10;items.splice(i,1);if(items.length<5)spawnOne();
+      setMsg(it.name+" 획득! 👍");ensureMissing();renderAll();
+      if(Object.keys(got).length>=names.length)startRolling();
+      return;
+    }
+  }
+}
+function wrongVisual(msg){
+  setMsg(msg);
+  const ts=document.getElementById("timer-section"),st=document.getElementById("stage");
+  ts.classList.remove("wrong-hit");st.classList.remove("wrong-hit");void ts.offsetWidth;void st.offsetWidth;
+  ts.classList.add("wrong-hit");st.classList.add("wrong-hit");
+  setTimeout(()=>{ts.classList.remove("wrong-hit");st.classList.remove("wrong-hit");},380);
+  renderTimer();
+}
+
+function startRolling(){
+  running=false;
+  setMsg("재료 완성! 김밥을 말고 있어요 🌀");
+  document.getElementById("rollOverlay").classList.add("show");
+  setTimeout(()=>{document.getElementById("rollOverlay").classList.remove("show");showComplete();},1600);
+}
+
+function showComplete(){
+  made++;
+  score+=getStage().bonus;
+  saveRanking(score);
+  renderAll();
+  document.getElementById("completeOverlay").classList.add("show");
+  startStageCompleteCountdown();
+}
+
+
+function launchFinishConfetti(){
+  const box=document.getElementById("finishConfetti");
+  const burst=document.getElementById("finishBurst");
+  if(!box||!burst)return;
+  box.innerHTML="";
+  const colors=["#ff5c2b","#ffd15b","#22c55e","#5bc0ff","#ff7ab6","#8b5cf6"];
+  for(let i=0;i<70;i++){
+    const c=document.createElement("span");
+    c.className="cf";
+    c.style.left=(Math.random()*100)+"%";
+    c.style.top=(-10-Math.random()*60)+"px";
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.animationDelay=(Math.random()*0.35)+"s";
+    c.style.animationDuration=(0.85+Math.random()*0.65)+"s";
+    c.style.transform=`rotate(${Math.random()*180}deg)`;
+    box.appendChild(c);
+  }
+  burst.classList.remove("show");
+  box.classList.remove("show");
+  void burst.offsetWidth;
+  burst.classList.add("show");
+  box.classList.add("show");
+  setTimeout(()=>{box.classList.remove("show");box.innerHTML="";burst.classList.remove("show");},1500);
+}
+
+function startStageCompleteCountdown(){
+  const cd=document.getElementById("stageCountdown");
+  const overlay=document.getElementById("completeOverlay");
+  cd.classList.remove("show");
+  if(round>=stages.length){
+    // 마지막 종료는 3,2,1 없이 바로 FINISH + 콘페티
+    launchFinishConfetti();
+    setTimeout(()=>{
+      overlay.classList.remove("show");
+      running=false;
+      renderResultRanking();
+      document.getElementById("resultModal").classList.add("show");
+    },1450);
+    return;
+  }
+
+  // 중간 스테이지는 기존처럼 START만 짧게 보여주고 다음 스테이지로
+  setTimeout(()=>{
+    cd.textContent="START!";
+    cd.classList.add("show");
+    setTimeout(()=>{
+      cd.classList.remove("show");
+      overlay.classList.remove("show");
+      round++;
+      startRound();
+    },650);
+  },650);
+}
+
+function endGame(){
+  running=false;saveRanking(score);document.getElementById("timeoutScore").textContent=score;
+  document.getElementById("stage").classList.remove("danger-time");document.getElementById("timer-section").classList.remove("danger-time");
+  document.getElementById("timeoutOverlay").classList.add("show");setMsg("시간 종료! ⏰");
+}
+
+function togglePause(){
+  if(!running)return;
+  if(paused){startResumeCountdown();return;}
+  paused=true;document.getElementById("pauseBtn").textContent="▶";document.getElementById("pauseOverlay").classList.add("show");setMsg("중앙 영역을 탭하면 3초 뒤 재개돼요");
+}
+function startResumeCountdown(){
+  if(!paused||resumeCounting)return;
+  resumeCounting=true;document.getElementById("pauseOverlay").classList.remove("show");
+  const el=document.getElementById("resumeCountdown");let c=3;el.textContent=c;el.classList.add("show");
+  const timer=setInterval(()=>{c--;if(c>0)el.textContent=c;else{clearInterval(timer);el.textContent="START!";setTimeout(()=>{el.classList.remove("show");paused=false;resumeCounting=false;document.getElementById("pauseBtn").textContent="⏸";last=performance.now();setMsg("레시피 재료만 빠르게 모으세요!");},450);}},1000);
+}
+
+function renderAll(){renderUI();renderRecipeBar();renderCollectSlots();renderTimer();renderHearts();draw();}
+function renderUI(){document.getElementById("score").textContent=score;document.getElementById("made").textContent=made;document.getElementById("stageNum").textContent=round}
+function renderRecipeBar(){
+  document.getElementById("kimbapName").textContent=getStage().title;
+  document.getElementById("recipe-icons").innerHTML=names.map(n=>{
+    const img=IMGS[n];
+    return `<div class="recipe-icon ${got[n]?"got":""}">${img&&img.src?`<img src="${img.src}" alt="${n}">`:`<span class="ing-label">${n}</span>`}</div>`;
+  }).join("");
+}
+function renderCollectSlots(){
+  document.getElementById("collect-slots").innerHTML=names.map((n,i)=>{
+    const img=IMGS[n],filled=got[n];
+    return `<div class="collect-slot ${filled?"filled":""}" id="cslot-${i}">${filled&&img&&img.src?`<img src="${img.src}" alt="${n}">`:`<span class="slot-empty">○</span>`}</div>`;
+  }).join("");
+  names.forEach((n,i)=>{if(got[n]){const s=document.getElementById("cslot-"+i);if(s){s.classList.add("pop");setTimeout(()=>s.classList.remove("pop"),350);}}});
+  document.getElementById("progressText").textContent=Object.keys(got).length+" / "+names.length;
+}
+function renderTimer(){
+  const sec=Math.ceil(time);document.getElementById("timerNum").textContent=sec;
+  const pct=Math.max(0,time/roundTime*100),bar=document.getElementById("timerBar");
+  bar.style.width=pct+"%";bar.style.background=pct<25?"linear-gradient(90deg,#ff4d4d,#ff1a1a)":pct<50?"linear-gradient(90deg,#ffb84d,#ff8c00)":"linear-gradient(90deg,#69d88f,#25c26a)";
+  const danger=time<6&&running&&!paused;
+  document.getElementById("stage").classList.toggle("danger-time",danger);
+  document.getElementById("timer-section").classList.toggle("danger-time",danger);
+}
+
+function saveRanking(s){const arr=JSON.parse(localStorage.getItem("kimbap_ranks")||"[]");arr.push(s);arr.sort((a,b)=>b-a);localStorage.setItem("kimbap_ranks",JSON.stringify(arr.slice(0,20)))}
+function getRanks(){return JSON.parse(localStorage.getItem("kimbap_ranks")||"[]").sort((a,b)=>b-a)}
+function getRankInfo(myScore){const ranks=getRanks();let r=ranks.findIndex(v=>v===myScore)+1;if(r<=0)r=ranks.filter(v=>v>myScore).length+1;return{ranks,myRank:r}}
+function renderResultRanking(){
+  const panel=document.getElementById("resultRankPanel");
+  if(!panel) return;
+  const info=getRankInfo(score);
+  const top=info.ranks.slice(0,5);
+  panel.innerHTML=`<div class="result-rank-title">내 기록</div><div class="result-rank-me"><span>내 점수 ${score}점</span><span>현재 순위 ${info.myRank}위</span></div><div class="result-rank-list">${top.length?top.map((s,i)=>`<div class="rank-row"><span>${i+1}위</span><span>${s}점</span></div>`).join(""):`<div class="rank-row"><span>기록 없음</span><span>-</span></div>`}</div>`;
+}
+function openRanking(){
+  const list=document.getElementById("rankList");
+  const ranks=getRanks().slice(0,5);
+  const panel=document.getElementById("rankMePanel");
+  const info=getRankInfo(score);
+  if(panel){
+    panel.classList.add("show");
+    panel.innerHTML=`<div class="rank-me-title">내 기록</div><div class="rank-me-row"><span>${score}점</span><span class="rank-me-rank">현재 ${info.myRank}위</span></div>`;
+  }
+  list.innerHTML=ranks.length
+    ? ranks.map((s,i)=>`<div class="rank-row"><span>${i+1}위</span><span>${s}점</span></div>`).join("")
+    : `<div class="rank-row"><span>기록 없음</span><span>-</span></div>`;
+  document.getElementById("rankModal").classList.add("show");
+}
+function closeRanking(){document.getElementById("rankModal").classList.remove("show")}
+function closeResultModal(){document.getElementById("resultModal").classList.remove("show");goHome();}
+function tryNoHeartRetry(){
+  const h=getHearts();
+  if(h.count<=0){
+    document.getElementById("heartTimerBig").textContent=fmtMs(getNextHeartMs());
+    setMsg("하트가 부족해요. 랭킹을 확인하거나 홈으로 이동할 수 있어요.");
+    return;
+  }
+  document.getElementById("noHeartOverlay").classList.remove("show");
+  startGame();
+}
+function openRankingFromNoHeart(){
+  openRanking();
+}
+function closeNoHeart(){document.getElementById("noHeartOverlay").classList.remove("show")}
+
+loadImages();resizeCanvas();renderHearts();renderUI();renderTimer();draw();
+</script>
+</body>
+</html>
